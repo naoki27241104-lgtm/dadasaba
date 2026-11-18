@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#071426">
+<title>NEON SURVIVOR</title>
+<style>
+:root{--cyan:#5deaff;--blue:#258dff;--panel:rgba(8,22,43,.88);--line:rgba(104,222,255,.32);--white:#eafaff}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050d1b;color:var(--white);font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;touch-action:none}
+canvas{display:block;width:100vw;height:100dvh;background:#071426}
+#hud{position:absolute;inset:0;pointer-events:none;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 10px)}
+.top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 10px;backdrop-filter:blur(8px);box-shadow:0 0 18px #0a9bc522}
+.small{font-size:11px;color:#a9d7e8}.value{font-weight:800;font-size:15px}
+.bar{height:7px;background:#20364c;border-radius:8px;overflow:hidden;margin-top:4px}.fill{height:100%;background:linear-gradient(90deg,#16a8ff,#6df6ff);width:100%;transition:width .15s}
+#hpbox{width:36vw;max-width:190px}#xpbox{position:absolute;top:calc(env(safe-area-inset-top) + 64px);left:12px;right:12px}
+#xpfill{background:linear-gradient(90deg,#8a62ff,#4de6ff)}
+#weaponHud{position:absolute;top:calc(env(safe-area-inset-top) + 82px);left:12px;display:flex;gap:5px;flex-wrap:wrap;max-width:65%;pointer-events:none}
+.weapon-chip{font-size:10px;background:#0b2038d9;border:1px solid #3e9bb8;border-radius:8px;padding:4px 6px}
+#pause{pointer-events:auto;position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 58px);border:1px solid var(--line);background:#0a2038dd;color:white;border-radius:10px;padding:8px 12px;font-weight:700}
+#bossbar{display:none;position:absolute;top:calc(env(safe-area-inset-top) + 118px);left:12%;width:76%}
+#bossbar .bar{height:10px}
+#bossfill{background:linear-gradient(90deg,#ff397b,#ffb34f)}
+#bottomInfo{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 12px);left:12px;font-size:11px;color:#b5d9e9;text-shadow:0 1px 4px #000}
+#joystick{position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom) + 24px);width:116px;height:116px;border-radius:50%;background:#75dfff12;border:2px solid #7adfff55;pointer-events:auto;display:none}
+#stick{position:absolute;width:48px;height:48px;left:32px;top:32px;border-radius:50%;background:linear-gradient(145deg,#a4f7ffbb,#238edb99);border:1px solid #c8fbff;box-shadow:0 0 18px #38cfff66}
+#special{pointer-events:auto;position:absolute;right:24px;bottom:calc(env(safe-area-inset-bottom) + 28px);width:76px;height:76px;border-radius:50%;border:2px solid #80eaff;background:radial-gradient(circle,#1b83b9dd,#0b2548ee);color:#e9fcff;font-weight:800;font-size:12px;box-shadow:0 0 20px #29caff55}
+#overlay{position:fixed;inset:0;z-index:20;pointer-events:auto;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#061326ed,#071a31ee);padding:22px;z-index:5}
+.panel{position:relative;z-index:1;width:min(560px,100%);max-height:92dvh;overflow:auto;background:linear-gradient(145deg,#102944f5,#07182cf5);border:1px solid #55dfff66;border-radius:22px;padding:24px;box-shadow:0 0 50px #00bfff20;text-align:center}
+h1{font-size:clamp(30px,8vw,52px);letter-spacing:3px;margin:4px 0;color:#dffaff;text-shadow:0 0 22px #28cfff}
+h2{margin:0 0 12px;color:#bff6ff}.sub{color:#9fc8dc;font-size:13px;line-height:1.7}
+.btn{position:relative;z-index:2;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent;border:1px solid #72eaff;background:linear-gradient(100deg,#0879b9,#164b91);color:white;border-radius:12px;padding:13px 22px;font-weight:800;font-size:15px;margin:8px 4px;min-width:140px}
+.btn.secondary{background:#102b45;border-color:#47758f}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:16px}
+.choice{background:#102a44;border:1px solid #56cbe7;border-radius:13px;padding:14px 9px;color:white;text-align:left;min-height:125px}
+.choice b{display:block;color:#8cefff;margin-bottom:7px}.choice small{color:#c2dce8;line-height:1.5}
+#overlay.hidden{display:none}
+@media(max-width:520px){.cards{grid-template-columns:1fr}.choice{min-height:75px}.panel{padding:18px}.choice small{font-size:11px}}
+@media(pointer:coarse){#joystick{display:block}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+ <div class="top">
+  <div class="stat" id="hpbox"><div class="small">HULL / HP <span id="hptext" class="value">100 / 100</span></div><div class="bar"><div id="hpfill" class="fill"></div></div></div>
+  <div class="stat"><div class="small">TIME</div><div id="time" class="value">00:00</div></div>
+  <div class="stat"><div class="small">LV / KILLS</div><div class="value"><span id="level">1</span> / <span id="kills">0</span></div></div>
+ </div>
+ <div id="xpbox" class="stat"><div class="small">EXPERIENCE</div><div class="bar"><div id="xpfill" class="fill" style="width:0%"></div></div></div>
+ <div id="weaponHud"></div>
+ <div id="bossbar"><div class="small">BOSS SIGNATURE</div><div class="bar"><div id="bossfill" class="fill"></div></div></div>
+ <button type="button" id="pause">Ⅱ PAUSE</button>
+ <div id="bottomInfo">MOVE · AUTO ATTACK</div>
+ <div id="joystick"><div id="stick"></div></div>
+ <button type="button" id="special">PULSE<br>READY</button>
+</div>
+<div id="overlay">
+ <div class="panel" id="panel">
+  <h1>NEON<br>SURVIVOR</h1>
+  <p class="sub">NEO-ARK RESEARCH FACILITY<br>未知生命体の侵入を阻止せよ。</p>
+  <p class="sub">左スティックで移動。武器は自動攻撃します。<br>敵を倒して経験値を集め、装備を強化しよう。</p>
+  <button type="button" class="btn" id="start">MISSION START</button>
+  <button type="button" class="btn secondary" id="upgrade">PERMANENT UPGRADES</button>
+  <p class="sub" id="bestline"></p>
+ </div>
+</div>
+<script>
+(()=>{'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+let W=0,H=0,DPR=1;
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+const WEAPONS=[
+ ['エネルギー弾','◆','敵へ向かうエネルギー弾を連射'],
+ ['回転ブレード','◈','周囲を回転する刃で攻撃'],
+ ['連鎖電撃','ϟ','複数の敵へ電撃を連鎖'],
+ ['レーザー','╱','敵を貫通する直線レーザー'],
+ ['グレネード','✹','着弾地点で範囲爆発'],
+ ['ドローン','⬡','自律機が敵を追尾して攻撃'],
+ ['ミサイル','➤','敵を追尾する高威力弾'],
+ ['火炎放射','♨','前方へ継続ダメージ'],
+ ['重力フィールド','◎','周囲の敵を引き寄せる'],
+ ['地雷','✦','設置した罠が範囲爆発']
+];
+const SUPPORT=[
+ ['攻撃強化','全武器のダメージ上昇'],['攻撃速度強化','攻撃間隔を短縮'],['防御強化','受けるダメージを軽減'],
+ ['最大HP強化','最大HPを増加'],['HP回復','HPを一定量回復'],['移動速度強化','移動速度上昇'],
+ ['経験値強化','経験値獲得量上昇'],['攻撃範囲強化','範囲攻撃の大きさ上昇'],['クールダウン短縮','武器の待ち時間短縮'],['運強化','レベルアップ候補の質を改善']
+];
+let state='title',player,enemies=[],shots=[],fx=[],gems=[],weapons=[],supports=[],time=0,kills=0,spawnTimer=0,elapsed=0,last=0,boss=null,level=1,xp=0,xpNeed=5,coins=0,runCoins=0,score=0,specialCD=0,move={x:0,y:0},keys={},lastShot={},shake=0;
+let save={coins:0,best:0,attack:0,hp:0,speed:0,unlocked:[0],plays:0};
+try{save={...save,...JSON.parse(localStorage.getItem('neonSurvivorSave')||'{}')}}catch(e){}
+function persist(){try{localStorage.setItem('neonSurvivorSave',JSON.stringify(save))}catch(e){}}
+function rand(a,b){return a+Math.random()*(b-a)}function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function resetGame(){
+ player={x:W/2,y:H/2,r:12,hp:100+save.hp*10,maxHp:100+save.hp*10,speed:190+save.speed*5,inv:0};
+ enemies=[];shots=[];fx=[];gems=[];weapons=[];supports=[];time=0;elapsed=0;kills=0;spawnTimer=0;boss=null;level=1;xp=0;xpNeed=5;runCoins=0;score=0;specialCD=0;lastShot={};
+ let startWeapon=[0,1,2,3,4,5,6,7,8,9][Math.floor(Math.random()*10)];
+ weapons.push({id:startWeapon,lv:1});
+ state='playing';save.plays=(save.plays||0)+1;persist();$('bossbar').style.display='none';$('overlay').classList.add('hidden');
+ updateHud();
+}
+function nearest(x,y){let best=null,bd=1e9;for(const e of enemies){let d=Math.hypot(e.x-x,e.y-y);if(d<bd){bd=d;best=e}}return best}
+function spawnEnemy(){
+ let side=Math.floor(Math.random()*4),x=side===0?rand(-20,W+20):side===1?-20:side===2?rand(-20,W+20):W+20;
+ let y=side===0?-20:side===1?rand(-20,H+20):side===2?H+20:rand(-20,H+20);
+ let t=time,kind=Math.random()<Math.min(.35,.12+t/700)?1:0;
+ let hp=(kind?34:18)*(1+t/100);enemies.push({x,y,r:kind?13:9,hp,max:hp,speed:(kind?38:55)+Math.min(35,t*.12),dmg:kind?16:9,kind,flash:0});
+}
+function addFx(x,y,color,r=20){fx.push({x,y,r,life:.35,max:.35,color})}
+function killEnemy(e){let i=enemies.indexOf(e);if(i<0)return;enemies.splice(i,1);kills++;score+=e.kind?30:10;gems.push({x:e.x,y:e.y,v:e.kind?3:1,r:5});if(Math.random()<.14){runCoins++;}addFx(e.x,e.y,e.kind?'#ff8a6b':'#5deaff',e.r*2)}
+function damageEnemy(e,d){if(!e)return;e.hp-=d;e.flash=.08;if(e.hp<=0)killEnemy(e)}
+function fireBullet(x,y,target,dmg,speed=340,r=4,homing=false,color='#67efff',splash=0){
+ let a=Math.atan2(target.y-y,target.x-x);shots.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r,dmg,life:2,homing,target, color,splash});
+}
+function weaponUpdate(dt){
+ for(const w of weapons){
+  const lv=w.lv,rate=(supports.find(s=>s.id===1)?.lv||0)*.08,cd=(supports.find(s=>s.id===8)?.lv||0)*.07;
+  const interval=Math.max(.18,(1.15-lv*.025)*(1-rate)*(1-cd));
+  lastShot[w.id]=(lastShot[w.id]||0)-dt;
+  const target=nearest(player.x,player.y);
+  if(w.id===1){ // orbiting blades handled in draw/collision
+    continue;
+  }
+  if(w.id===8){for(const e of enemies){let d=dist(player,e);if(d<75+lv*3){damageEnemy(e,(8+lv*2)*dt);if(Math.random()<.035)addFx(e.x,e.y,'#9c8bff',10)}}continue}
+  if(w.id===7){if(target&&lastShot[w.id]<=0){let a=Math.atan2(target.y-player.y,target.x-player.x);for(let j=-1;j<=1;j++){let aa=a+j*.22;shots.push({x:player.x+Math.cos(aa)*10,y:player.y+Math.sin(aa)*10,vx:Math.cos(aa)*270,vy:Math.sin(aa)*270,r:7,dmg:7+lv*2,life:.42,homing:false,color:'#ffb45d',splash:0})}lastShot[w.id]=interval*.65}continue}
+  if(w.id===9){if(lastShot[w.id]<=0){shots.push({mine:true,x:player.x,y:player.y,r:7,life:5,dmg:22+lv*4,color:'#ffcc70'});lastShot[w.id]=Math.max(1.1,2.8-lv*.08)}continue}
+  if(!target||lastShot[w.id]>0)continue;
+  if(w.id===2){let hit=[target,...enemies.filter(e=>e!==target).sort((a,b)=>dist(a,target)-dist(b,target)).slice(0,1+Math.floor(lv/5))];hit.forEach((e,i)=>{damageEnemy(e,12+lv*3);addFx(e.x,e.y,'#8cf7ff',16)});lastShot[w.id]=interval*1.8;continue}
+  if(w.id===3){let a=Math.atan2(target.y-player.y,target.x-player.x);shots.push({beam:true,x:player.x,y:player.y,angle:a,life:.16,dmg:24+lv*5,color:'#8ef8ff'});for(const e of enemies){let dx=e.x-player.x,dy=e.y-player.y,along=dx*Math.cos(a)+dy*Math.sin(a),perp=Math.abs(dx*Math.sin(a)-dy*Math.cos(a));if(along>0&&along<330&&perp<12+lv)damageEnemy(e,24+lv*5)}lastShot[w.id]=interval*2.3;continue}
+  if(w.id===4){fireBullet(player.x,player.y,target,17+lv*4,230,6,false,'#7cb9ff',55+lv*3);lastShot[w.id]=interval*1.8;continue}
+  if(w.id===5){let angle=rand(0,Math.PI*2),d=rand(40,90);let drone={x:player.x+Math.cos(angle)*d,y:player.y+Math.sin(angle)*d};fireBullet(drone.x,drone.y,target,8+lv*2,290,4,true,'#a6ffdf');lastShot[w.id]=interval*.85;continue}
+  if(w.id===6){fireBullet(player.x,player.y,target,28+lv*6,230,6,true,'#ff8d75',38+lv*2);lastShot[w.id]=interval*2.1;continue}
+  if(w.id===0){fireBullet(player.x,player.y,target,10+lv*2.2,380,4,false,'#65eaff');lastShot[w.id]=interval*.65}
+ }
+ // orbit blade contact
+ let blade=weapons.find(w=>w.id===1);if(blade){let angle=time*2.8;for(let j=0;j<Math.min(5,1+Math.floor(blade.lv/4));j++){let a=angle+j*Math.PI*2/Math.min(5,1+Math.floor(blade.lv/4)),bx=player.x+Math.cos(a)*(43+blade.lv*1.5),by=player.y+Math.sin(a)*(43+blade.lv*1.5);for(const e of [...enemies])if(Math.hypot(e.x-bx,e.y-by)<e.r+9)damageEnemy(e,(18+blade.lv*4)*dt)}}
+}
+function makeChoices(){
+ let opts=[],owned=weapons.map(w=>w.id),supportOwned=supports.map(s=>s.id);
+ let pool=[];
+ for(const w of weapons)if(w.lv<20)pool.push({type:'weapon',id:w.id,upgrade:true});
+ for(let id=0;id<10;id++)if(!owned.includes(id)&&weapons.length<5)pool.push({type:'weapon',id,upgrade:false});
+ for(let id=0;id<10;id++)if(!supportOwned.includes(id)&&supports.length<5)pool.push({type:'support',id,upgrade:false});
+ for(const s of supports)if(s.lv<10)pool.push({type:'support',id:s.id,upgrade:true});
+ while(opts.length<3&&pool.length){let i=Math.floor(Math.random()*pool.length);opts.push(pool.splice(i,1)[0])}
+ return opts;
+}
+function levelUp(){state='level';showChoices()}
+function showChoices(){
+ const opts=makeChoices(),panel=$('panel');panel.innerHTML='<h2>LEVEL UP</h2><p class="sub">強化する能力を1つ選択してください</p><div class="cards" id="choices"></div>';
+ const box=$('choices');
+ opts.forEach(o=>{let title,desc;if(o.type==='weapon'){title=WEAPONS[o.id][0]+(o.upgrade?' Lv.UP':' NEW');desc=WEAPONS[o.id][2]+'。'+(o.upgrade?'レベル上昇':'新しい武器を獲得')}else{title=SUPPORT[o.id][0]+(o.upgrade?' Lv.UP':'');desc=SUPPORT[o.id][1]}
+ let b=document.createElement('button');b.className='choice';b.innerHTML='<b>'+title+'</b><small>'+desc+'</small>';b.onclick=()=>{if(o.type==='weapon'){let w=weapons.find(x=>x.id===o.id);if(w)w.lv++;else weapons.push({id:o.id,lv:1})}else{let s=supports.find(x=>x.id===o.id);if(s)s.lv++;else supports.push({id:o.id,lv:1});if(o.id===3){player.maxHp+=20;player.hp=Math.min(player.maxHp,player.hp+20)}if(o.id===4)player.hp=Math.min(player.maxHp,player.hp+35);if(o.id===2){} }state='playing';$('overlay').classList.add('hidden');updateHud();};box.appendChild(b)});
+ $('overlay').classList.remove('hidden');
+}
+function showPanel(title,body,buttons){$('panel').innerHTML='<h2>'+title+'</h2><div class="sub">'+body+'</div>'+buttons;$('overlay').classList.remove('hidden')}
+function pause(){if(state==='playing'){state='paused';showPanel('PAUSED','ゲームを一時停止しています。','<button type="button" class="btn" id="resume">RESUME</button><button type="button" class="btn secondary" id="quit">TITLE</button>');$('resume').onclick=()=>{state='playing';$('overlay').classList.add('hidden')};$('quit').onclick=()=>titleScreen()} }
+function titleScreen(){state='title';$('bossbar').style.display='none';$('overlay').classList.remove('hidden');$('panel').innerHTML='<h1>NEON<br>SURVIVOR</h1><p class="sub">NEO-ARK RESEARCH FACILITY<br>未知生命体の侵入を阻止せよ。</p><p class="sub">左スティックで移動。武器は自動攻撃します。<br>5分後にボスが出現。撃破すればミッション成功。</p><button type="button" class="btn" id="start">MISSION START</button><button type="button" class="btn secondary" id="upgrade">PERMANENT UPGRADES</button><p class="sub" id="bestline">BEST SCORE: '+(save.best||0)+'</p>';$('start').onclick=resetGame;$('upgrade').onclick=upgradeScreen}
+function upgradeScreen(){let html='<p>所持コイン：'+save.coins+'</p>';[['攻撃力', 'attack'],['最大HP','hp'],['移動速度','speed']].forEach(([n,k])=>{let cost=20+(save[k]||0)*25;html+='<p>'+n+' Lv.'+(save[k]||0)+'　<button type="button" class="btn secondary" data-up="'+k+'">強化 '+cost+' COIN</button></p>'});showPanel('PERMANENT UPGRADES',html,'<button type="button" class="btn" id="back">BACK</button>');document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{let k=b.dataset.up,cost=20+(save[k]||0)*25;if(save.coins>=cost){save.coins-=cost;save[k]=(save[k]||0)+1;persist();upgradeScreen()}});$('back').onclick=titleScreen}
+function gameOver(win){state='result';let reward=Math.floor(score/15)+runCoins+(win?50:0);save.coins=(save.coins||0)+reward;save.best=Math.max(save.best||0,score);persist();showPanel(win?'MISSION CLEAR':'MISSION FAILED','SCORE：'+score+'<br>ELIMINATIONS：'+kills+'<br>COINS：+'+reward+'<br><br>累計コイン：'+save.coins,'<button type="button" class="btn" id="again">RETRY</button><button type="button" class="btn secondary" id="home">TITLE</button>');$('again').onclick=resetGame;$('home').onclick=titleScreen}
+function spawnBoss(){let hp=1700;boss={x:W/2,y:-70,r:31,hp,max:hp,phase:0,attack:0,kind:0};$('bossbar').style.display='block';addFx(W/2,90,'#ff5289',100)}
+function update(dt){
+ time+=dt;elapsed+=dt;player.inv=Math.max(0,player.inv-dt);specialCD=Math.max(0,specialCD-dt);
+ let mx=move.x+(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0),my=move.y+(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0),m=Math.hypot(mx,my);if(m>1){mx/=m;my/=m}
+ player.x=clamp(player.x+mx*player.speed*dt,player.r,W-player.r);player.y=clamp(player.y+my*player.speed*dt,player.r,H-player.r);
+ let spawnRate=Math.max(.22,.9-time*.0017);spawnTimer+=dt;if(spawnTimer>spawnRate&&time<300){spawnTimer=0;spawnEnemy();if(time>100&&Math.random()<.3)spawnEnemy()}
+ for(const e of [...enemies]){let a=Math.atan2(player.y-e.y,player.x-e.x);e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt;if(dist(e,player)<e.r+player.r&&player.inv<=0){let defense=supports.find(s=>s.id===2)?.lv||0;player.hp-=Math.max(1,e.dmg*(1-defense*.08));player.inv=.55;shake=5;if(player.hp<=0){gameOver(false);return}}}
+ weaponUpdate(dt);
+ for(const s of [...shots]){
+  if(s.enemy)continue;
+  if(s.mine){s.life-=dt;for(const e of [...enemies])if(dist(s,e)<s.r+e.r+2){addFx(s.x,s.y,'#ffca76',55);for(const q of [...enemies])if(dist(s,q)<60)damageEnemy(q,s.dmg);shots.splice(shots.indexOf(s),1);break}if(s.life<=0)shots.splice(shots.indexOf(s),1);continue}
+  if(s.beam){s.life-=dt;if(s.life<=0)shots.splice(shots.indexOf(s),1);continue}
+  if(s.homing&&s.target&&enemies.includes(s.target)){let a=Math.atan2(s.target.y-s.y,s.target.x-s.x),v=Math.hypot(s.vx,s.vy),turn=5*dt,cur=Math.atan2(s.vy,s.vx),diff=Math.atan2(Math.sin(a-cur),Math.cos(a-cur));cur+=clamp(diff,-turn,turn);s.vx=Math.cos(cur)*v;s.vy=Math.sin(cur)*v}
+  s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;
+  let hit=enemies.find(e=>dist(e,s)<e.r+s.r);if(hit){damageEnemy(hit,s.dmg);if(s.splash){addFx(s.x,s.y,s.color,s.splash);for(const e of [...enemies])if(dist(e,s)<s.splash)damageEnemy(e,s.dmg*.65)}shots.splice(shots.indexOf(s),1)}else if(s.life<=0||s.x<-40||s.x>W+40||s.y<-40||s.y>H+40)shots.splice(shots.indexOf(s),1)
+ }
+ for(const g of [...gems]){let d=dist(g,player);if(d<100){g.x+=(player.x-g.x)*dt*3;g.y+=(player.y-g.y)*dt*3}if(d<player.r+g.r+5){let mult=1+(supports.find(s=>s.id===6)?.lv||0)*.15;xp+=g.v*mult;gems.splice(gems.indexOf(g),1);while(xp>=xpNeed){xp-=xpNeed;level++;xpNeed=Math.floor(5+level*2.1);levelUp();break}}}
+ for(const f of fx){f.life-=dt;f.r+=35*dt}fx=fx.filter(f=>f.life>0);
+ if(boss){let a=Math.atan2(player.y-boss.y,player.x-boss.x);boss.x+=(W/2-boss.x)*dt*.4;boss.y+=(Math.min(H*.28,130)-boss.y)*dt*.5;boss.attack+=dt;if(boss.attack>1.15){boss.attack=0;for(let j=-1;j<=1;j++){let aa=a+j*.28;shots.push({enemy:true,x:boss.x,y:boss.y,vx:Math.cos(aa)*170,vy:Math.sin(aa)*170,r:7,dmg:13,life:3,color:'#ff648b'})}}
+  // player weapons hit boss
+  for(const s of shots.filter(s=>!s.enemy&&!s.mine&&!s.beam)){if(Math.hypot(s.x-boss.x,s.y-boss.y)<boss.r+s.r){boss.hp-=s.dmg;shots.splice(shots.indexOf(s),1)}}
+  if(boss.hp<=0){gameOver(true);return}
+  if(dist(player,boss)<player.r+boss.r&&player.inv<=0){player.hp-=18;player.inv=.6;if(player.hp<=0){gameOver(false);return}}
+  $('bossfill').style.width=clamp(boss.hp/boss.max*100,0,100)+'%';
+ }
+ for(const s of [...shots].filter(s=>s.enemy)){s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;if(dist(s,player)<s.r+player.r&&player.inv<=0){player.hp-=s.dmg;player.inv=.5;shots.splice(shots.indexOf(s),1);if(player.hp<=0){gameOver(false);return}}else if(s.life<=0)shots.splice(shots.indexOf(s),1)}
+ if(time>=300&&!boss)spawnBoss();
+ updateHud();
+}
+function updateHud(){ $('special').innerHTML=specialCD>0?'PULSE<br>'+Math.ceil(specialCD)+'s':'PULSE<br>READY'; $('hptext').textContent=Math.ceil(player.hp)+' / '+player.maxHp;$('hpfill').style.width=clamp(player.hp/player.maxHp*100,0,100)+'%';$('time').textContent=fmt(time);$('level').textContent=level;$('kills').textContent=kills;$('xpfill').style.width=clamp(xp/xpNeed*100,0,100)+'%';$('weaponHud').innerHTML=weapons.map(w=>'<span class="weapon-chip">'+WEAPONS[w.id][1]+' '+WEAPONS[w.id][0]+' Lv.'+w.lv+'</span>').join('')}
+function fmt(t){let s=Math.floor(t);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function draw(){
+ ctx.clearRect(0,0,W,H);let grd=ctx.createRadialGradient(W/2,H/2,10,W/2,H/2,Math.max(W,H)*.75);grd.addColorStop(0,'#102b47');grd.addColorStop(1,'#050d1b');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle='#3b89aa18';ctx.lineWidth=1;for(let x=0;x<W;x+=38){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=0;y<H;y+=38){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+ // ambient lab markings
+ ctx.strokeStyle='#55dfff12';ctx.lineWidth=2;ctx.strokeRect(18,150,W-36,H-190);
+ for(const g of gems){ctx.save();ctx.translate(g.x,g.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#65f4ff';ctx.shadowColor='#36dfff';ctx.shadowBlur=12;ctx.fillRect(-4,-4,8,8);ctx.restore()}
+ for(const e of enemies){ctx.save();ctx.translate(e.x,e.y);ctx.fillStyle=e.flash>0?'#fff':e.kind?'#ff795f':'#b54cba';ctx.shadowColor=e.kind?'#ff674f':'#d85cff';ctx.shadowBlur=14;ctx.beginPath();ctx.arc(0,0,e.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#1b1730';ctx.beginPath();ctx.arc(-3,-2,2,0,7);ctx.arc(3,-2,2,0,7);ctx.fill();ctx.restore()}
+ for(const s of shots){if(s.enemy||s.mine||s.beam){}ctx.save();ctx.strokeStyle=s.color||'#8df';ctx.fillStyle=s.color||'#8df';ctx.shadowColor=s.color||'#8df';ctx.shadowBlur=12;if(s.beam){ctx.translate(s.x,s.y);ctx.rotate(s.angle);ctx.fillRect(0,-4,350,8)}else if(s.mine){ctx.beginPath();ctx.arc(s.x,s.y,7,0,7);ctx.fill()}else{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.restore()}
+ for(const f of fx){ctx.globalAlpha=f.life/f.max;ctx.strokeStyle=f.color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(f.x,f.y,f.r*(1-f.life/f.max*.3),0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1}
+ if(boss){ctx.save();ctx.translate(boss.x,boss.y);ctx.rotate(time*.35);ctx.shadowColor='#ff397b';ctx.shadowBlur=25;ctx.fillStyle='#76264e';ctx.strokeStyle='#ff7eaa';ctx.lineWidth=3;ctx.beginPath();for(let i=0;i<12;i++){let a=i*Math.PI/6,r=i%2?25:36;ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
+ if(player){ctx.save();ctx.translate(player.x,player.y);if(player.inv>0)ctx.globalAlpha=.5+Math.sin(time*30)*.3;ctx.shadowColor='#41eaff';ctx.shadowBlur=22;ctx.fillStyle='#c4fbff';ctx.strokeStyle='#37cfff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,player.r,0,7);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#0878b7';ctx.beginPath();ctx.arc(0,0,5,0,7);ctx.fill();ctx.restore()}
+}
+function loop(ts){let dt=Math.min(.033,(ts-last)/1000||0);last=ts;if(state==='playing')update(dt);draw();requestAnimationFrame(loop)}
+// Use delegated click handling so the title buttons keep working after the title UI is rebuilt.
+document.addEventListener('click',e=>{
+ const startButton=e.target.closest('#start');
+ if(startButton){e.preventDefault();resetGame();return}
+ const upgradeButton=e.target.closest('#upgrade');
+ if(upgradeButton){e.preventDefault();upgradeScreen();return}
+},true);
+window.addEventListener('error',e=>{
+ const panel=$('panel');
+ if(panel && state!=='playing'){
+  panel.insertAdjacentHTML('beforeend','<p class="sub" style="color:#ff9caa">ゲーム初期化エラー：'+String(e.message||'不明なエラー').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))+'</p>');
+ }
+});
+requestAnimationFrame(loop);
+$('pause').onclick=pause;
+$('special').onclick=()=>{if(state!=='playing'||specialCD>0)return;specialCD=12;for(const e of [...enemies]){if(dist(e,player)<155){damageEnemy(e,45);addFx(e.x,e.y,'#a8faff',24)}}if(boss&&dist(boss,player)<200)boss.hp-=80;addFx(player.x,player.y,'#8efaff',155);$('special').innerHTML='PULSE<br>'+Math.ceil(specialCD)+'s'};
+const joy=$('joystick'),stick=$('stick');let joyId=null,joyRect;
+function joyMove(e){let r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,len=Math.hypot(dx,dy),max=37;if(len>max){dx=dx/len*max;dy=dy/len*max}move={x:dx/max,y:dy/max};stick.style.transform=`translate(${dx}px,${dy}px)`}
+joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(joyId);joyMove(e)});joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joyMove(e)});function joyEnd(e){if(e.pointerId===joyId){joyId=null;move={x:0,y:0};stick.style.transform='translate(0,0)'}}joy.addEventListener('pointerup',joyEnd);joy.addEventListener('pointercancel',joyEnd);
+addEventListener('keydown',e=>{keys[e.key]=true;if(e.key==='Escape')pause()});addEventListener('keyup',e=>keys[e.key]=false);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause()});
+})();
+</script>
+</body></html>
